@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PiggySave - แอปบันทึกเงินออมสดใส 🌸</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-color: #FFF9F3;
+      --card-bg: #FFFFFF;
+      --income-color: #7BC74C;
+      --expense-color: #FF7676;
+      --accent-color: #FFB830;
+      --text-color: #2B2B2B;
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: 'Kanit', system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      padding: 20px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      color: #FF6B6B;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 18px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.04);
+    }
+
+    /* Summary Dashboard Cards */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      text-align: center;
+    }
+
+    .summary-item {
+      padding: 12px 8px;
+      border-radius: 14px;
+    }
+
+    .summary-item.income { background-color: #E8F5E9; color: var(--income-color); }
+    .summary-item.expense { background-color: #FFEBEE; color: var(--expense-color); }
+    .summary-item.balance { background-color: #FFF8E1; color: #F57F17; }
+
+    .summary-item h4 { font-size: 0.8rem; margin-bottom: 4px; }
+    .summary-item p { font-size: 1rem; font-weight: bold; }
+
+    /* Form Section */
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px 14px;
+      border: 2px solid #EFEFEF;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: 0.2s;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent-color);
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #FFB830, #FF7676);
+      color: white;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(255, 118, 118, 0.3);
+    }
+
+    /* Goal Section */
+    .goal-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 14px;
+      background-color: #EFEFEF;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #7BC74C, #38EF7D);
+      transition: width 0.4s ease;
+    }
+
+    /* History List */
+    .history-list {
+      list-style: none;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #F5F5F5;
+    }
+
+    .history-item:last-child { border-bottom: none; }
+
+    .history-info p { font-size: 0.9rem; font-weight: 500; }
+    .history-info small { font-size: 0.75rem; color: #888; }
+
+    .amount-income { color: var(--income-color); font-weight: bold; }
+    .amount-expense { color: var(--expense-color); font-weight: bold; }
+
+    /* Chart Filter */
+    .filter-btn-group {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .filter-btn {
+      flex: 1;
+      padding: 6px;
+      border: none;
+      border-radius: 8px;
+      background-color: #F0F0F0;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+
+    .filter-btn.active {
+      background-color: var(--accent-color);
+      color: white;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🐷 PiggySave</h1>
+    <p>บันทึกเงินออมประจำวัน สดใส ใช้งานง่าย</p>
+  </header>
+
+  <!-- 1. Dashboard สรุปยอด -->
+  <div class="card">
+    <div class="summary-grid">
+      <div class="summary-item income">
+        <h4>รายรับรวม</h4>
+        <p id="totalIncome">฿0</p>
+      </div>
+      <div class="summary-item expense">
+        <h4>รายจ่ายรวม</h4>
+        <p id="totalExpense">฿0</p>
+      </div>
+      <div class="summary-item balance">
+        <h4>คงเหลือ</h4>
+        <p id="totalBalance">฿0</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. ตั้งเป้าหมายเงินออม -->
+  <div class="card">
+    <div class="goal-header">
+      <span id="goalTitle">🎯 เป้าหมาย: ยังไม่ตั้งเป้าหมาย</span>
+      <span id="goalPercent">0%</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="goalProgress"></div>
+    </div>
+    <div style="margin-top: 10px; display: flex; gap: 8px;">
+      <input type="text" id="goalNameInput" placeholder="ชื่อเป้าหมาย (เช่น ซื้อกระเป๋า)">
+      <input type="number" id="goalAmountInput" placeholder="จำนวนเงิน">
+      <button onclick="setGoal()" style="padding: 0 12px; background: #6C5CE7; color: white; border: none; border-radius: 10px; cursor: pointer;">ตั้งค่า</button>
+    </div>
+  </div>
+
+  <!-- 3. ฟอร์มบันทึกรายการ -->
+  <div class="card">
+    <h3 style="margin-bottom: 12px; font-size: 1.1rem;">📝 บันทึกรายการใหม่</h3>
+    <form id="transactionForm">
+      <div class="form-group">
+        <label>ประเภทรายการ</label>
+        <select id="type">
+          <option value="income">รายรับ / เงินออม 🟢</option>
+          <option value="expense">รายจ่าย 🔴</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>จำนวนเงิน (บาท)</label>
+        <input type="number" id="amount" placeholder="0.00" required>
+      </div>
+      <div class="form-group">
+        <label>รายละเอียด / หมวดหมู่</label>
+        <input type="text" id="note" placeholder="เช่น เงินออมประจำวัน, ค่าข้าว" required>
+      </div>
+      <div class="form-group">
+        <label>วัน-เวลา</label>
+        <input type="datetime-local" id="datetime" required>
+      </div>
+      <button type="submit" class="btn-submit">+ บันทึกรายการ</button>
+    </form>
+  </div>
+
+  <!-- 4. กราฟสรุปผล Dashboard -->
+  <div class="card">
+    <h3 style="margin-bottom: 10px; font-size: 1.1rem;">📊 สรุปผลการเงิน</h3>
+    <div class="filter-btn-group">
+      <button class="filter-btn active" onclick="updateChart('day')">ประจำวัน</button>
+      <button class="filter-btn" onclick="updateChart('week')">สัปดาห์นี้</button>
+      <button class="filter-btn" onclick="updateChart('month')">เดือนนี้</button>
+    </div>
+    <canvas id="summaryChart" height="200"></canvas>
+  </div>
+
+  <!-- 5. รายการประวัติ -->
+  <div class="card">
+    <h3 style="margin-bottom: 12px; font-size: 1.1rem;">📜 ประวัติรายการล่าสุด</h3>
+    <ul class="history-list" id="historyList"></ul>
+  </div>
+
+  <script>
+    // ดึง Data จาก LocalStorage
+    let transactions = JSON.parse(localStorage.getItem('piggy_transactions')) || [];
+    let goal = JSON.parse(localStorage.getItem('piggy_goal')) || { name: 'ซื้อหูฟังใหม่', amount: 1000 };
+
+    // Initial Setup
+    document.getElementById('datetime').value = new Date().toISOString().slice(0, 16);
+    let chartInstance = null;
+
+    function init() {
+      updateSummary();
+      renderHistory();
+      renderGoal();
+      initChart();
+    }
+
+    // คำนวณสรุปยอด
+    function updateSummary() {
+      const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+      const expense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+      const balance = income - expense;
+
+      document.getElementById('totalIncome').innerText = `฿${income.toLocaleString()}`;
+      document.getElementById('totalExpense').innerText = `฿${expense.toLocaleString()}`;
+      document.getElementById('totalBalance').innerText = `฿${balance.toLocaleString()}`;
+
+      renderGoal(balance);
+    }
+
+    // ตั้งเป้าหมาย
+    function setGoal() {
+      const name = document.getElementById('goalNameInput').value;
+      const amount = parseFloat(document.getElementById('goalAmountInput').value);
+
+      if (name && amount > 0) {
+        goal = { name, amount };
+        localStorage.setItem('piggy_goal', JSON.stringify(goal));
+        updateSummary();
+        document.getElementById('goalNameInput').value = '';
+        document.getElementById('goalAmountInput').value = '';
+      }
+    }
+
+    function renderGoal(currentBalance = 0) {
+      if (!goal.amount) return;
+      document.getElementById('goalTitle').innerText = `🎯 เป้าหมาย: ${goal.name}`;
+      const percent = Math.min(Math.max((currentBalance / goal.amount) * 100, 0), 100).toFixed(1);
+      document.getElementById('goalPercent').innerText = `${percent}%`;
+      document.getElementById('goalProgress').style.width = `${percent}%`;
+    }
+
+    // บันทึกรายการ
+    document.getElementById('transactionForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const newTransaction = {
+        id: Date.now(),
+        type: document.getElementById('type').value,
+        amount: parseFloat(document.getElementById('amount').value),
+        note: document.getElementById('note').value,
+        datetime: document.getElementById('datetime').value
+      };
+
+      transactions.unshift(newTransaction);
+      localStorage.setItem('piggy_transactions', JSON.stringify(transactions));
+
+      updateSummary();
+      renderHistory();
+      updateChart('day');
+
+      // Reset Form
+      document.getElementById('amount').value = '';
+      document.getElementById('note').value = '';
+      document.getElementById('datetime').value = new Date().toISOString().slice(0, 16);
+    });
+
+    // แสดงประวัติ
+    function renderHistory() {
+      const list = document.getElementById('historyList');
+      list.innerHTML = '';
+
+      transactions.forEach(t => {
+        const li = document.createElement('li');
+        li.className = 'history-item';
+        const dateObj = new Date(t.datetime);
+        const formattedDate = `${dateObj.toLocaleDateString('th-TH')} ${dateObj.toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'})}`;
+
+        li.innerHTML = `
+          <div class="history-info">
+            <p>${t.note}</p>
+            <small>${formattedDate}</small>
+          </div>
+          <span class="${t.type === 'income' ? 'amount-income' : 'amount-expense'}">
+            ${t.type === 'income' ? '+' : '-'}฿${t.amount.toLocaleString()}
+          </span>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    // ระบบ Chart.js สรุปผล
+    function initChart() {
+      const ctx = document.getElementById('summaryChart').getContext('2d');
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['รายรับ', 'รายจ่าย'],
+          datasets: [{
+            data: [0, 0],
+            backgroundColor: ['#7BC74C', '#FF7676'],
+            borderRadius: 8
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+      updateChart('day');
+    }
+
+    function updateChart(period) {
+      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+      event?.target?.classList.add('active');
+
+      const now = new Date();
+      let filtered = transactions;
+
+      if (period === 'day') {
+        const todayStr = now.toISOString().slice(0, 10);
+        filtered = transactions.filter(t => t.datetime.startsWith(todayStr));
+      } else if (period === 'week') {
+        const oneWeekAgo = new Date(now.setDate(now.getDate() - 7));
+        filtered = transactions.filter(t => new Date(t.datetime) >= oneWeekAgo);
+      } else if (period === 'month') {
+        const monthStr = now.toISOString().slice(0, 7);
+        filtered = transactions.filter(t => t.datetime.startsWith(monthStr));
+      }
+
+      const incomeSum = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+      const expenseSum = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+
+      chartInstance.data.datasets[0].data = [incomeSum, expenseSum];
+      chartInstance.update();
+    }
+
+    init();
+  </script>
+</body>
+</html>
